@@ -93,5 +93,5 @@ async def write(address):
     print('disconnect')
 
 loop = asyncio.get_event_loop()
-# loop.run_until_complete(notifyRead(DEVICE_ADDRESSS))
+loop.run_until_complete(notifyRead(DEVICE_ADDRESSS))
 loop.run_until_complete(write(DEVICE_ADDRESSS))
