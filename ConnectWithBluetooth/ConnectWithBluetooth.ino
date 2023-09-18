@@ -13,11 +13,18 @@ void freeMem(){
   Serial.println(freeMemory());
 }
 
+float calRandNum(int time){
+  long randNumber = random(-50, 50);
+  float sinx = (800 * sin(time / 80));
+  if(sinx < 0){return 0;}
+  else if(randNumber > sinx){ return sinx;}
+  else{ return sinx - randNumber;}
+}
+
 void dataSend(String data){
 
   byte *temp = new byte[data.length()+1];
   data.getBytes(temp, data.length()+1);
-
 
   ////////////////////////////////////////////////////////////////
   Serial.println("data : " + data);
@@ -32,7 +39,7 @@ void dataSend(String data){
 			BTSerial.write((byte)data[i]);
 		}
   delete[] temp;
-  delay(1000);
+  // delay(1000);
 }
 
 void resetTimer(int time = 0){
@@ -70,19 +77,21 @@ void loop() {
   unsigned long tmpTime = int(millis());
   if (tmpTime > time_limit * 1000){
     flag = false;
+    dataSend("SF");
     // resetTimer();
   }
 
   while(flag == false){
     chkSwitch();
     if (flag == true){
-      // dataSend("SO");
-      // delay(5000);
+      dataSend("SO");
+      delay(5000);
       resetTimer();
       }
   }
   
-  long randNumber = random(300);
+  // long randNumber = random(300);
+  float randNumber = calRandNum(int(millis()));
   data = String(millis()) + '_' + String(randNumber);
   dataSend(data);
 
