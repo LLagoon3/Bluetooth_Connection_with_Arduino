@@ -76,7 +76,7 @@ async def notifyRead(address):
                         print('try to activate notify.')
                         await client.start_notify(characteristic, notify_callback)
         if client.is_connected:
-            await asyncio.sleep(3) 
+            await asyncio.sleep(20) 
             print('try to deactivate notify.')
             await client.stop_notify(TX_UUID)
 

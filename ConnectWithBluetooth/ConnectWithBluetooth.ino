@@ -18,20 +18,21 @@ void dataSend(String data){
   byte *temp = new byte[data.length()+1];
   data.getBytes(temp, data.length()+1);
 
+
   ////////////////////////////////////////////////////////////////
   Serial.println("data : " + data);
   Serial.print("Byte data : ");
   for(int i=0;i<data.length();i++){Serial.print(byte(temp[i]));}
   Serial.println();////
   Serial.print("byte size : " );
-  Serial.println(sizeof(data) / sizeof(byte));
+  Serial.println(data.length());
   ////////////////////////////////////////////////////////////////
 
   for (int i = 0 ; i < data.length() + 1 ; i++) {
 			BTSerial.write((byte)data[i]);
 		}
   delete[] temp;
-  // delay(1000);
+  delay(1000);
 }
 
 void resetTimer(int time = 0){
@@ -74,7 +75,11 @@ void loop() {
 
   while(flag == false){
     chkSwitch();
-    if (flag == true){resetTimer();}
+    if (flag == true){
+      // dataSend("SO");
+      // delay(5000);
+      resetTimer();
+      }
   }
   
   long randNumber = random(300);
