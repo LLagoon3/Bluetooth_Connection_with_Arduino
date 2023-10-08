@@ -2,9 +2,13 @@
 extern volatile unsigned long timer0_millis;
 // SoftwareSerial(RX, TX)
 SoftwareSerial BTSerial(4, 5);
+int SWITCH = 2;
+int FSR = 1;
 int led = 13;
 int time_limit = 60;
 bool flag = false;
+
+int testMax = 0;
 
 #include <MemoryFree.h>
 
@@ -55,10 +59,19 @@ void setup() {
 }
 
 void chkSwitch(){
-  int i = analogRead(2);
+  int i = analogRead(SWITCH);
   Serial.println("\n\nanalogRead : " + String(i));
   if (i > 800){flag = true;}
   else{flag = false;}
+}
+
+void chkFSR(){
+  int fsrVal = analogRead(FSR);
+  float voltage = fsrVal * (5.0 / 1023.0);
+  fsrVal = map(fsrVal, 0, 410, 0, 100); 
+  if(testMax < fsrVal){testMax = fsrVal;}
+  Serial.println("\nVoltage : " + String(voltage) + "v  Pressure : " + String(fsrVal) + "kg  Max_val : " + String(testMax));
+  delay(1000);
 }
 
 void loop() {
@@ -82,7 +95,8 @@ void loop() {
   }
 
   while(flag == false){
-    chkSwitch();
+    // chkSwitch();
+    chkFSR();
     if (flag == true){
       dataSend("SO");
       delay(5000);
