@@ -76,7 +76,7 @@ async def notifyRead(address):
                         print('try to activate notify.')
                         await client.start_notify(characteristic, notify_callback)
         if client.is_connected:
-            await asyncio.sleep(20) 
+            await asyncio.sleep(100) 
             print('try to deactivate notify.')
             await client.stop_notify(TX_UUID)
 
@@ -93,5 +93,6 @@ async def write(address):
     print('disconnect')
 
 loop = asyncio.get_event_loop()
-loop.run_until_complete(notifyRead(DEVICE_ADDRESSS))
-loop.run_until_complete(write(DEVICE_ADDRESSS))
+# loop.run_until_complete(findDevices())
+# loop.run_until_complete(notifyRead(DEVICE_ADDRESSS))
+# loop.run_until_complete(write(DEVICE_ADDRESSS))
