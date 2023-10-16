@@ -12,7 +12,6 @@ int t[100];
 int cnt = 0;
 int testMax = 0;
 
-#include <MemoryFree.h>
 
 void debug(){
   while(true){
@@ -34,10 +33,6 @@ void debug(){
   }
 }
 
-void freeMem(){
-  Serial.print("Memory : ");
-  Serial.println(freeMemory());
-}
 
 float calRandNum(int time){
   long randNumber = random(-50, 50);
@@ -62,8 +57,8 @@ void dataSend(String data){
   ////////////////////////////////////////////////////////////////
 
   for (int i = 0 ; i < data.length() + 1 ; i++) {
-			BTSerial.write((byte)data[i]);
-		}
+      BTSerial.write((byte)data[i]);
+    }
   delete[] temp;
   // delay(1000);
 }
@@ -74,9 +69,9 @@ void resetTimer(int time = 0){
 }
 
 void setup() {
-	Serial.begin(9600);
+  Serial.begin(9600);
   randomSeed(analogRead(0));
-	BTSerial.begin(9600);
+  BTSerial.begin(9600);
   pinMode(led,OUTPUT);
 }
 
@@ -93,6 +88,7 @@ String chkFSR(){
   for(int i = 0;i < sizeof(FSR) / sizeof(int); i++){
     fsrVals = fsrVals + String(analogRead(FSR[i])) + ",";
   }
+  fsrVals = fsrVals.substring(0, fsrVals.length() - 1);
   Serial.println(fsrVals);
   // float voltage = fsrVal * (5.0 / 1023.0);
   // int convertFsrVal = map(fsrVal, 0, 410, 0, 100); 
@@ -103,8 +99,6 @@ String chkFSR(){
 }
 
 void loop() {
-
-  freeMem();
 
   // debug();
   
@@ -128,6 +122,7 @@ void loop() {
     chkSwitch();
     if (flag == true){
       dataSend("SO");
+      Serial.println("SO");
       delay(6000);
       resetTimer();
       }
