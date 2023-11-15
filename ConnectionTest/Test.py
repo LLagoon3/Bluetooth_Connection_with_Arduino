@@ -1,9 +1,12 @@
 import asyncio 
 from bleak import BleakScanner, BleakClient
+import csv
 
 DEVICE_ADDRESSS = "880747D3-2C1B-25C6-3A7E-FBC1871EE8B1"
 RX_UUID = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
 TX_UUID = "6e400003-b5a3-f393-e0a9-e50e24dcca9e"
+
+
 
 def detection_callback(device, advertisement_data):
     print(device.address, "RSSI:", device.rssi, advertisement_data)
@@ -19,12 +22,19 @@ def notify_callback(sender: int, data: bytearray):
         if encodedCh == '_':
             encodedData.append(tmp)
             tmp = ""
+        elif encodedCh == ',':
+            encodedData.append(tmp)
+            tmp = ""
         elif encodedCh == '\x00':
             encodedData.append(tmp)
             
         else: tmp += encodedCh
     
     print(encodedData)
+    if len(encodedData) > 6: 
+        writer.writerow(encodedData[:6])
+        writer.writerow(encodedData[7:-1])
+    else: writer.writerow(encodedData[:-1])
 
 
 
@@ -62,6 +72,12 @@ async def getServices(address):
         await client.disconnect()
 
 async def notifyRead(address):    
+    f = open('test.csv', 'a')
+    tmpList = list()
+    global writer 
+    writer = csv.writer(f)
+    
+    
     async with BleakClient(address) as client:
         print('connected')
         services = await client.get_services()
@@ -76,10 +92,10 @@ async def notifyRead(address):
                         print('try to activate notify.')
                         await client.start_notify(characteristic, notify_callback)
         if client.is_connected:
-            await asyncio.sleep(20) 
+            await asyncio.sleep(10) 
             print('try to deactivate notify.')
             await client.stop_notify(TX_UUID)
-
+    f.close()
     print('disconnect')
 
 async def write(address):    
@@ -87,11 +103,13 @@ async def write(address):
         print('connected')
         services = await client.get_services()        
         for service in services:
-            await client.write_gatt_char(RX_UUID, bytes(b'hello world'))
+            await client.write_gatt_char(RX_UUID, bytes(b'ST'))
             print('Send Data')
     
     print('disconnect')
 
 loop = asyncio.get_event_loop()
-loop.run_until_complete(notifyRead(DEVICE_ADDRESSS))
+# loop.run_until_complete(findDevices())
+# loop.run_until_complete(notifyRead(DEVICE_ADDRESSS))
 loop.run_until_complete(write(DEVICE_ADDRESSS))
+# loop.run_until_comple
