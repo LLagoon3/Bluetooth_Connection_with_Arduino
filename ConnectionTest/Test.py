@@ -103,12 +103,13 @@ async def write(address):
         print('connected')
         services = await client.get_services()        
         for service in services:
-            await client.write_gatt_char(RX_UUID, bytes(b'hello world'))
+            await client.write_gatt_char(RX_UUID, bytes(b'ST'))
             print('Send Data')
     
     print('disconnect')
 
 loop = asyncio.get_event_loop()
 # loop.run_until_complete(findDevices())
-loop.run_until_complete(notifyRead(DEVICE_ADDRESSS))
+# loop.run_until_complete(notifyRead(DEVICE_ADDRESSS))
+loop.run_until_complete(write(DEVICE_ADDRESSS))
 # loop.run_until_comple
