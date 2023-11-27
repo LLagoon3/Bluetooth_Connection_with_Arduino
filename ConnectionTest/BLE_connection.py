@@ -51,7 +51,7 @@ async def notifyRead(address, file_name):
                         print('try to activate notify.')
                         await client.start_notify(characteristic, notify_callback)
         if client.is_connected:
-            await asyncio.sleep(1) 
+            await asyncio.sleep(10) 
             print('try to deactivate notify.')
             await client.stop_notify(TX_UUID)
     f.close()

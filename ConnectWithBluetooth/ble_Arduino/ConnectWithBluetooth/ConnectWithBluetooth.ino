@@ -13,16 +13,29 @@ bool FLAG = false;
 // unsigned long lastSendTime = 0;
 int sendInterval = 50;
 
-int COUNT = 0;
-int COUNT_SUCCESS = 0;
-bool COUNT_FLAG = false;
+int COUNT[5] = {0, 0, 0, 0, 0};
+int COUNT_SUCCESS[5] = {0, 0, 0, 0, 0};
+int COUNT_FLAG[5] = {0, 0, 0, 0, 0};
 int COUNT_VALUE = 130;
-int PREV_VALUE = 0;
-int MAX_VALUE = 0;
+int PREV_VALUE[5] = {0, 0, 0, 0, 0};
+int MAX_VALUE[5] = {0, 0, 0, 0, 0};
+int MIN_VALUE[5] = {300, 300, 300, 300, 300};
+int THRESHOLDS[5] = {100,200, 95,95,145};
 
 unsigned long RANGE_TIME_LIMIT = 3;
 int RANGE_COUNT = 0;
 unsigned long RANGE_PREV_TIME = 0;
+
+struct defaultValue{
+  int max = 0;
+  int min = 0;
+  int max_cnt = 0;
+  int min_cnt = 0;
+  float max_mean;
+  float min_mean;
+};
+
+defaultValue defaultSensorValues[5];
 
 struct sensorValues {
     int sensorValue0 = 0;
@@ -49,56 +62,31 @@ void debug(){
   }
 }
 
-void freeMem(){
-  Serial.print("Memory : ");
-  Serial.println(freeMemory());
-}
-
-float calRandNum(int time){
-  long randNumber = random(-50, 50);
-  float sinx = (800 * sin(time / 80));
-  if(sinx < 0){return 0;}
-  else if(randNumber > sinx){ return sinx;}
-  else{ return sinx - randNumber;}
-}
-
 void dataSend(String data){
 
   byte *temp = new byte[data.length()+1];
   data.getBytes(temp, data.length()+1);
 
-  ////////////////////////////////////////////////////////////////
-  // Serial.println("data : " + data);
-  // Serial.print("Byte data : ");
-  // for(int i=0;i<data.length();i++){Serial.print(byte(temp[i]));}
-  // Serial.println();////
-  // Serial.print("byte size : " );
-  // Serial.println(data.length());
-  ////////////////////////////////////////////////////////////////
-
   for (int i = 0 ; i < data.length() + 1 ; i++) {
       BTSerial.write((byte)data[i]);
     }
   delete[] temp;
-  // delay(1000);
 }
 
 void resetStage(int time = 0){
   timer0_millis = time;
-  COUNT = 0;
-  COUNT_SUCCESS = 0;
-  COUNT_FLAG = false;
-  PREV_VALUE = 0;
-  MAX_VALUE = 0;
+  for(int i = 0; i < 5; i++){
+    COUNT[i] = 0;
+    COUNT_SUCCESS[i] = 0;
+    COUNT_FLAG[i] = 0;
+    PREV_VALUE[i] = 0;
+    MAX_VALUE[i] = 0;
+    MIN_VALUE[i] = 300;
+  }
   Serial.println("Reset Stage");
 }
 
-void setup() {
-  Serial.begin(9600);
-  randomSeed(analogRead(0));
-  BTSerial.begin(9600);
-  pinMode(LED,OUTPUT);
-}
+
 
 bool chkSwitch(){
   int i = analogRead(SWITCH);
@@ -111,42 +99,33 @@ sensorValues chkFSR(){
   sensorValues result;
   // if(int(analogRead(FSR[0])) > 50){ CNT = CNT + 1;}
   for(int i = 0; i < sizeof(FSR) / sizeof(int); i++){
+    
     int value = analogRead(FSR[i]);
     result.sensorValueString = result.sensorValueString + String(value) + ",";
-    result.sensorValueList[i] = value;
+    result.sensorValueList[i] = map(constrain(value, 0, THRESHOLDS[i]), 0, THRESHOLDS[i], 0, 100);
     result.tmpSensorValueList[i] = value;
   }
   result.sensorValueString = result.sensorValueString.substring(0, result.sensorValueString.length() - 1);
-  Serial.println(result.sensorValueString);
-  // float voltage = fsrVal * (5.0 / 1023.0);
-  // int convertFsrVal = map(fsrVal, 0, 410, 0, 100); 
-  // if(testMax < fsrVal){testMax = fsrVal;}
-  // Serial.println("\nValue : " + String(fsrVal) + " Voltage : " + String(voltage) + "v  Pressure : " + String(convertFsrVal) + "kg  Max_val : " + String(testMax));
-  // // delay(500);
   return result;
 }
 
 void quickSort(int arr[], int low, int high) {
     if (low < high) {
-        // 분할(partitioning) 단계
         int pi = partition(arr, low, high);
-        // 분할된 부분에서 각각 정렬 수행
         quickSort(arr, low, pi - 1);
         quickSort(arr, pi + 1, high);
     }
 }
 
 int partition(int arr[], int low, int high) {
-    int pivot = arr[high];  // 피벗을 배열의 마지막 요소로 선택
-    int i = (low - 1);  // 작은 요소들의 마지막 인덱스
+    int pivot = arr[high]; 
+    int i = (low - 1);
     for (int j = low; j <= high - 1; j++) {
-        // 현재 요소가 피벗보다 작으면 교환
         if (arr[j] < pivot) {
             i++;
             swap(arr[i], arr[j]);
         }
     }
-    // 피벗 위치 교환
     swap(arr[i + 1], arr[high]);
     return (i + 1);
 }
@@ -156,15 +135,6 @@ void swap(int &a, int &b) {
     a = b;
     b = temp;
 }
-
-// int deepCopyArray(int originArr[]){
-//   int size = sizeof(originArr) / sizeof(originArr[0]);
-//   int result[size];
-//   for(int i; i < size; i++){
-//     result[i] = originArr[i];
-//   }
-//   return result;
-// }
 
 void printArray(int arr[]) {
     for (int i = 0; i < 5; i++) {
@@ -182,49 +152,56 @@ double bpm(int count, unsigned long time){
 }
 
 
-
-countValues p_count(int current_val){
+countValues p_count(int current_val, int index){
   countValues result;
-  if(current_val - PREV_VALUE > 6){ // UP
-    COUNT_FLAG = true;
-    MAX_VALUE = current_val;
+  if(current_val - PREV_VALUE[index] > 6){ // UP
+    COUNT_FLAG[index] = true;
+    MAX_VALUE[index] = current_val;
   }
-  else if((current_val - PREV_VALUE < -6) && (COUNT_FLAG == true)){ // DOWN
-    if(MAX_VALUE >= COUNT_VALUE){
-      COUNT_SUCCESS++;
+  else if((current_val - PREV_VALUE[index] < -6) && (COUNT_FLAG[index] == 1)){ // DOWN
+    if(MAX_VALUE[index] >= COUNT_VALUE){
+      COUNT_SUCCESS[index]++;
     }
-    COUNT_FLAG = false;
-    MAX_VALUE = 0;
-    COUNT++;
+
+    defaultSensorValues[index].max = defaultSensorValues[index].max + MAX_VALUE;
+    defaultSensorValues[index].max_cnt++;
+    defaultSensorValues[index].min = defaultSensorValues[index].min + MIN_VALUE;
+    defaultSensorValues[index].min_cnt++;
+  
+    COUNT_FLAG[index] = 0;
+    MAX_VALUE[index] = 0;
+    MIN_VALUE[index] = 300;
+    COUNT[index]++;
+  }
+  if((current_val != 0) && (current_val < MIN_VALUE[index])){
+    MIN_VALUE[index] = current_val;
   }
 
-  PREV_VALUE = current_val;
-  result.count = COUNT;
-  result.successCount = COUNT_SUCCESS;
+  PREV_VALUE[index] = current_val;
+  result.count = COUNT[index];
+  result.successCount = COUNT_SUCCESS[index];
   return result;
 }
 
+
+
+void setup() {
+  Serial.begin(9600);
+  randomSeed(analogRead(0));
+  BTSerial.begin(9600);
+  pinMode(LED,OUTPUT);
+}
+
 void loop() {
-
-  // debug();
-
-  // if (BTSerial.available()) {
-  //     while(BTSerial.available() > 0){
-  //         Serial.println(BTSerial.read());
-  //     }
-  //     flag = false;
-  //   }
 
   unsigned long currentTime = (millis());
 
   if ((currentTime) > TIME_LIMIT * 1000){
     FLAG = false;
     dataSend("SF");
-    // resetTimer();
   }
 
   while(FLAG == false){
-    // chkSwitch();
     if(chkSwitch() == true){
       dataSend("SO");
       while(true){
@@ -233,9 +210,6 @@ void loop() {
           Serial.print("recv: ");
           BTSerial.readBytes(buf, 20);
           Serial.println(String(buf));
-          // while(Serial.available() > 0){
-          //   Serial.read();
-          // }
           Serial.println(String(buf).indexOf("ST"));
           if(String(buf).indexOf("ST") == 0){
             dataSend("ST");
@@ -247,62 +221,19 @@ void loop() {
       }
       break;
 	  }
-    // if (flag == true){
-    //   dataSend("SO");
-    //   Serial.println("SO");
-    //   delay(6000);
-    //   resetTimer();
-    //   }
   }
-  // long randNumber = random(300);
-  // float randNumber = calRandNum(int(millis()));
-  // data = String(millis()) + '_' + String(randNumber);
-  // float bpm = (CNT / (time.toInt() / 1000)) * 60;
-  // String time = String(millis());
   
-  // if(currentTime - lastSendTime <= sendInterval){
-  //   int cycle = (currentTime / sendInterval);
-  //   String data = String(cycle) + '_' + chkFSR();
-  //   dataSend(data);
-  //   Serial.println("cycle : " + String(cycle) + ",  currentTime : " + String(currentTime) + ",  lastSendTime :" + String(lastSendTime));
-  // }
 
   int32_t cycle = int32_t(currentTime / sendInterval);
   sensorValues fsrVals = chkFSR();
   int size = sizeof(fsrVals.sensorValueList) / sizeof(fsrVals.sensorValueList[0]);
-  countValues countVals = p_count(fsrVals.tmpSensorValueList[0]);
-  // double bpm;
-  // int tmpArray[size];
-  // tmpArray = deepCopyArray(fsrVals.sensorValueList);
-
-  quickSort(fsrVals.sensorValueList, 0, size - 1);
-  
-  for(int i = 0; i < 5; i++){
-    if(fsrVals.tmpSensorValueList[i] == fsrVals.sensorValueList[4]){
-      fsrVals.sensorValue0 = i;
-    }
-    else if(fsrVals.tmpSensorValueList[i] == fsrVals.sensorValueList[3]){
-      fsrVals.sensorValue1 = i;
-    }
+  countValues countVals = p_count(fsrVals.tmpSensorValueList[0], 0);
+  String tmp = "";
+  for(int i = 0; i< 5; i++){
+    tmp = tmp + String(fsrVals.sensorValueList[i]) + ",";
   }
+  printArray(fsrVals.sensorValueList);
+  String data = String(cycle * sendInterval) + '_' + tmp + "_" + String(fsrVals.sensorValue0) + String(fsrVals.sensorValue1) + "_" + String(countVals.count) + "_" + String(int(bpm(countVals.count, currentTime))) + "_" + String(countVals.successCount);
 
-  //// BPM with Time Limit ////
-  // if(currentTime - RANGE_PREV_TIME > RANGE_TIME_LIMIT * 1000){
-  //   double tmpCount = count - RANGE_COUNT;
-  //   double tmpTime = RANGE_TIME_LIMIT;
-  //   RANGE_PREV_TIME = currentTime;
-  //   RANGE_COUNT = count;
-  //   bpm = (tmpCount / tmpTime) * 60;
-  //   Serial.println("bpm : " + String(bpm) + " tmpCount : " + String(tmpCount) + " tmpTime : " + String(tmpTime));
-  //   if(bpm < 0){
-  //     bpm = 0;
-  //   }
-  // }
-
-  String data = String(cycle * sendInterval) + '_' + fsrVals.sensorValueString + "_" + String(fsrVals.sensorValue0) + "," + String(fsrVals.sensorValue1) + "_" + String(countVals.count) + "_" + String(int(bpm(countVals.count, currentTime))) + "_" + String(countVals.successCount);
-  dataSend(data);
-  Serial.println(data);
-
-  // Serial.println("cycle : " + String(cycle) + ",  currentTime : " + String(currentTime));
-  // freeMem();
+  dataSend(data); 
 }
