@@ -53,6 +53,6 @@ if __name__ == "__main__":
     file_name = "test.csv"
     loop = asyncio.get_event_loop()
     loop.run_until_complete(write(DEVICE_ADDRESSS))
-    # loop.run_until_complete(notifyRead(DEVICE_ADDRESSS, file_name))
-    # makeGraph(file_name)
+    loop.run_until_complete(notifyRead(DEVICE_ADDRESSS, file_name))
+    makeGraph(file_name)
     
