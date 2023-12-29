@@ -16,15 +16,18 @@ int sendInterval = 50;
 int COUNT[5] = {0, 0, 0, 0, 0};
 int COUNT_SUCCESS[5] = {0, 0, 0, 0, 0};
 int COUNT_FLAG[5] = {0, 0, 0, 0, 0};
-int COUNT_VALUE = 130;
+int COUNT_VALUE = 70;
 int PREV_VALUE[5] = {0, 0, 0, 0, 0};
 int MAX_VALUE[5] = {0, 0, 0, 0, 0};
 int MIN_VALUE[5] = {300, 300, 300, 300, 300};
-int THRESHOLDS[5] = {100,200, 95,95,145};
+// int THRESHOLDS[5] = {100,200, 95,95,145};
+int THRESHOLDS[5] = {110,210, 105,105,155};
 
 unsigned long RANGE_TIME_LIMIT = 3;
 int RANGE_COUNT = 0;
 unsigned long RANGE_PREV_TIME = 0;
+
+
 
 struct defaultValue{
   int max = 0;
@@ -42,7 +45,9 @@ struct sensorValues {
     int sensorValue1 = 0;
     int sensorValueList[5];
     int tmpSensorValueList[5];
+    String sensorDirection = "ADC";
     String sensorValueString = "";
+    bool sucess = true;
 };
 
 struct countValues{
@@ -86,8 +91,6 @@ void resetStage(int time = 0){
   Serial.println("Reset Stage");
 }
 
-
-
 bool chkSwitch(){
   int i = analogRead(SWITCH);
   Serial.println("\n\nanalogRead : " + String(i));
@@ -99,11 +102,10 @@ sensorValues chkFSR(){
   sensorValues result;
   // if(int(analogRead(FSR[0])) > 50){ CNT = CNT + 1;}
   for(int i = 0; i < sizeof(FSR) / sizeof(int); i++){
-    
     int value = analogRead(FSR[i]);
     result.sensorValueString = result.sensorValueString + String(value) + ",";
     result.sensorValueList[i] = map(constrain(value, 0, THRESHOLDS[i]), 0, THRESHOLDS[i], 0, 100);
-    result.tmpSensorValueList[i] = value;
+    result.tmpSensorValueList[i] = map(constrain(value, 0, THRESHOLDS[i]), 0, THRESHOLDS[i], 0, 100);
   }
   result.sensorValueString = result.sensorValueString.substring(0, result.sensorValueString.length() - 1);
   return result;
@@ -151,15 +153,14 @@ double bpm(int count, unsigned long time){
   return (tmpCount / tmpTime) * 60;
 }
 
-
-countValues p_count(int current_val, int index){
+countValues p_count(int current_val, int index, bool sucess){
   countValues result;
   if(current_val - PREV_VALUE[index] > 6){ // UP
     COUNT_FLAG[index] = true;
     MAX_VALUE[index] = current_val;
   }
   else if((current_val - PREV_VALUE[index] < -6) && (COUNT_FLAG[index] == 1)){ // DOWN
-    if(MAX_VALUE[index] >= COUNT_VALUE){
+    if((MAX_VALUE[index] >= COUNT_VALUE) && (sucess == true)){
       COUNT_SUCCESS[index]++;
     }
 
@@ -183,7 +184,50 @@ countValues p_count(int current_val, int index){
   return result;
 }
 
+void countSucessValue(sensorValues *fsrVals){
+  fsrVals->sensorValue0 = 0;
+  fsrVals->sensorValue1 = 0;
+  for(int i = 0; i < 5; i++){
+    if (fsrVals->sensorValueList[i] == fsrVals->tmpSensorValueList[4]){
+      fsrVals->sensorValue0 = i;
+    }
+    else if(fsrVals->sensorValueList[i] == fsrVals->tmpSensorValueList[3]){
+      fsrVals->sensorValue1 = i;
+    }
+  }
 
+  Serial.println("val0 : " + String(fsrVals->sensorValue0) + "  val1 : " + String(fsrVals->sensorValue1));
+
+  if(fsrVals->sensorValue0 > fsrVals->sensorValue1){
+    int tmp = fsrVals->sensorValue0;
+    fsrVals->sensorValue0 = fsrVals->sensorValue1;
+    fsrVals->sensorValue1 = tmp;
+  }
+  if((fsrVals->sensorValue0 == 0) && (fsrVals->tmpSensorValueList[4] > COUNT_VALUE)){ ////
+    swap(fsrVals->sensorValue0, fsrVals->sensorValue1);
+    fsrVals->sensorDirection = "AC";
+  }
+  else if((fsrVals->sensorValue0 != 0) || ((fsrVals->tmpSensorValueList[3] == 0) || (fsrVals->tmpSensorValueList[4] == 0))){
+    fsrVals->sensorDirection = "ADC";
+    fsrVals->sucess = false;
+  }
+  else if((fsrVals->sensorValue0 == 0) && (fsrVals->sensorValue1 == 1)){
+    fsrVals->sensorDirection = "N";
+  }
+  else if((fsrVals->sensorValue0 == 0) && (fsrVals->sensorValue1 == 2)){
+    fsrVals->sensorDirection = "E";
+  }
+  else if((fsrVals->sensorValue0 == 0) && (fsrVals->sensorValue1 == 3)){
+    fsrVals->sensorDirection = "S";
+  }
+  else if((fsrVals->sensorValue0 == 0) && (fsrVals->sensorValue1 == 4)){
+    fsrVals->sensorDirection = "W";
+  }
+  else{
+    fsrVals->sensorDirection = "ADC";
+    fsrVals->sucess = false;
+  }
+}
 
 void setup() {
   Serial.begin(9600);
@@ -223,17 +267,23 @@ void loop() {
 	  }
   }
   
-
   int32_t cycle = int32_t(currentTime / sendInterval);
   sensorValues fsrVals = chkFSR();
   int size = sizeof(fsrVals.sensorValueList) / sizeof(fsrVals.sensorValueList[0]);
-  countValues countVals = p_count(fsrVals.tmpSensorValueList[0], 0);
+  
   String tmp = "";
+  quickSort(fsrVals.tmpSensorValueList, 0, size - 1);
+  countSucessValue(&fsrVals);
+  countValues countVals = p_count(fsrVals.sensorValueList[0], 0, fsrVals.sucess);
+
   for(int i = 0; i< 5; i++){
     tmp = tmp + String(fsrVals.sensorValueList[i]) + ",";
   }
-  printArray(fsrVals.sensorValueList);
-  String data = String(cycle * sendInterval) + '_' + tmp + "_" + String(fsrVals.sensorValue0) + String(fsrVals.sensorValue1) + "_" + String(countVals.count) + "_" + String(int(bpm(countVals.count, currentTime))) + "_" + String(countVals.successCount);
 
-  dataSend(data); 
+  String data = String(cycle * sendInterval) + '_' + tmp + "_" + String(fsrVals.sensorDirection) + "_" + String(countVals.count) + "_" + String(int(bpm(countVals.count, currentTime))) + "_" + String(countVals.successCount);
+  Serial.println(data);
+  // Serial.println("s1 : " + String(fsrVals.sensorValue0) + "  s2 : " + String(fsrVals.sensorValue1));
+  dataSend(data);
 }
+
+//시간_센서0,센서1,센서2,센서3,센서4_힘의방향_BPM_성공횟수
